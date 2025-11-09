@@ -1,7 +1,0 @@
-EasIlastik
-matplotlib
-mplcursors
-opencv-python
-pandas
-requests
-rich

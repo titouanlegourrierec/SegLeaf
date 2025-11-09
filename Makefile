@@ -1,44 +1,27 @@
-PYTHON?=python3
-VENV_NAME?=venv
-SRC?=src
+.PHONY: lint format quality precommit clean help
 
-.PHONY: setup check clean help
+SRC=.
 
-setup:
-	@if [ ! -d "$(VENV_NAME)" ]; then \
-	  $(PYTHON) -m venv $(VENV_NAME); \
-	fi
-	$(VENV_NAME)/bin/pip install --upgrade pip
-	@if [ -f requirements.txt ]; then \
-	  $(VENV_NAME)/bin/pip install -r requirements.txt; \
-	fi
-	@if [ -f requirements-dev.txt ]; then \
-	  $(VENV_NAME)/bin/pip install -r requirements-dev.txt; \
-	fi
+lint:
+	ruff check --fix $(SRC)
 
-check:
-	-$(VENV_NAME)/bin/python utils/end_of_file_fixer.py $(SRC)/* evaluation/*
-	-$(VENV_NAME)/bin/python utils/trailing_whitespace_fixer.py $(SRC)/* evaluation/*
-	@if [ -f requirements.txt ]; then \
-		$(VENV_NAME)/bin/python utils/requirements_txt_fixer.py requirements.txt; \
-	fi
-	@if [ -f requirements-dev.txt ]; then \
-		$(VENV_NAME)/bin/python utils/requirements_txt_fixer.py requirements-dev.txt; \
-	fi
+format:
+	ruff format $(SRC)
 
-	$(VENV_NAME)/bin/isort --profile black ./$(SRC) ./evaluation
-	$(VENV_NAME)/bin/black ./$(SRC) ./evaluation
-	$(VENV_NAME)/bin/flake8 --ignore=E501 ./$(SRC) ./evaluation
-	$(VENV_NAME)/bin/mypy --config-file mypy.ini ./$(SRC)
+quality: lint format
 
-	@echo "\033[1;32m✨ All checks passed successfully! ✨\033[0m"
+precommit:
+	pre-commit run --all-files
 
 clean:
-	@find ./src ./evaluation -type d -name "__pycache__" -exec rm -r {} +
+	rm -rf __pycache__
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -name "*.ipynb" -exec jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace {} +
 
 help:
-	@echo "\033[1;36mAvailable commands :\033[0m"
-	@echo "	\033[1;32mmake setup\033[0m    : Create the virtual environment and install dependencies."
-	@echo "	\033[1;32mmake check\033[0m    : Check and format code (quality, style, mypy, etc.)."
-	@echo "	\033[1;32mmake clean\033[0m    : Remove all __pycache__ directories."
-	@echo "	\033[1;32mmake help\033[0m     : Show this help message."
+	@echo "\033[1;36mMakefile targets:\033[0m"
+	@echo "  \033[1;32mlint\033[0m     : Check code with ruff."
+	@echo "  \033[1;32mformat\033[0m   : Format code with ruff."
+	@echo "  \033[1;32mquality\033[0m  : Run lint and format."
+	@echo "  \033[1;32mclean\033[0m    : Remove temporary files."
+	@echo "  \033[1;32mprecommit\033[0m: Run pre-commit hooks on all files."
