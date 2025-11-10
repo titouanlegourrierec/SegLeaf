@@ -1,14 +1,15 @@
-"""
-This module provides tools for segmenting leaves in images using a trained Ilastik model. It includes
-the LeafSegmenter class, which runs batch segmentation, renames output files, and generates a CSV report
-with pixel class statistics for each segmented image.
-"""
+"""Module for segmenting leaves in images using a trained Ilastik model and generating pixel class statistics."""
 
-from typing import Optional
+import csv
+import json
+import os
+import tempfile
 
-from EasIlastik.run_ilastik import run_ilastik  # type: ignore[import]
+import numpy as np
+from EasIlastik.run_ilastik import run_ilastik
+from PIL import Image
 
-import src.config as config
+from src import config
 
 
 def segment_leaves(model_path: str, input_path: str, output_path: str) -> None:
@@ -19,6 +20,7 @@ def segment_leaves(model_path: str, input_path: str, output_path: str) -> None:
         model_path (str): Path to the trained model file.
         input_path (str): Path to the input image directory.
         output_path (str): Path to save the segmented output images.
+
     """
     segmenter = LeafSegmenter(model_path, input_path, output_path)
     segmenter.segmenter(input_path, output_path)
@@ -33,23 +35,24 @@ class LeafSegmenter:
         model_path (str): Path to the Ilastik model file.
         input_path (str, optional): Path to the input images directory.
         output_path (str, optional): Path to the output directory for segmented images.
+
     """
 
     def __init__(
         self,
         model_path: str,
-        input_path: Optional[str] = None,
-        output_path: Optional[str] = None,
+        input_path: str | None = None,
+        output_path: str | None = None,
     ) -> None:
+        """Initialize the LeafSegmenter."""
         self.model_path = model_path
         self.input_path = input_path
         self.output_path = output_path
 
-    def segmenter(
-        self, input_path: Optional[str] = None, output_path: Optional[str] = None
-    ) -> None:
+    def segmenter(self, input_path: str | None = None, output_path: str | None = None) -> None:
         """
         Run Ilastik segmentation on images in the input directory and save results to the output directory.
+
         Optionally, input and output paths can be provided; otherwise, instance attributes are used.
         After segmentation, renames files to remove '_Simple_Segmentation' from filenames.
         Temporarily moves any CSV files out of the input directory during Ilastik processing.
@@ -60,6 +63,7 @@ class LeafSegmenter:
 
         Raises:
             ValueError: If input_path or output_path is not specified.
+
         """
         # Use class attributes if arguments are not provided
         if input_path is None:
@@ -67,7 +71,8 @@ class LeafSegmenter:
         if output_path is None:
             output_path = self.output_path
         if input_path is None or output_path is None:
-            raise ValueError("input_path and output_path must be specified.")
+            msg = "input_path and output_path must be specified."
+            raise ValueError(msg)
         # Ensure output_path ends with a slash
         if not output_path.endswith("/"):
             output_path += "/"
@@ -75,9 +80,6 @@ class LeafSegmenter:
         self.output_path = output_path
 
         # Temporarily move CSV files out of the input directory
-        import os
-        import tempfile
-
         temp_dir = tempfile.mkdtemp()
         csv_files = []
 
@@ -112,26 +114,20 @@ class LeafSegmenter:
 
     def make_bilan(self) -> None:
         """
-        For each segmented image in output_path, count the number of pixels per class and save the results to a CSV file.
-        Each row in the CSV corresponds to an image, and each column to a class (using class names from color_map.json if available).
+        For each segmented image in output_path, count pixels per class and save the results to a CSV file.
+
+        Each row in the CSV corresponds to an image, and each column to a class (using class names from color_map.json
+        if available).
 
         Raises:
             ValueError: If output_path is not set.
+
         """
-        import csv
-        import os
-
-        import numpy as np
-        from PIL import Image
-
         if self.output_path is None:
-            raise ValueError("output_path must be set to count pixels per class.")
+            msg = "output_path must be set to count pixels per class."
+            raise ValueError(msg)
         segmented_dir = self.output_path
-        image_files = [
-            f
-            for f in os.listdir(segmented_dir)
-            if f.lower().endswith((".png", ".tif", ".tiff"))
-        ]
+        image_files = [f for f in os.listdir(segmented_dir) if f.lower().endswith((".png", ".tif", ".tiff"))]
         image_files.sort()
 
         # Collect all unique classes present in all images
@@ -144,19 +140,15 @@ class LeafSegmenter:
             arr = np.array(img)
             unique, counts = np.unique(arr, return_counts=True)
             # Surface en mm² pour chaque classe
-            class_area = {
-                int(u): float(c) * mm2_per_pixel for u, c in zip(unique, counts)
-            }
+            class_area = {int(u): float(c) * mm2_per_pixel for u, c in zip(unique, counts, strict=False)}
             image_class_areas[img_file] = class_area
             all_classes.update(class_area.keys())
 
         all_classes_sorted: list[int] = sorted(all_classes)
 
         # Read color_map.json to get class names
-        import json
-
         color_map_path = os.path.join(os.path.dirname(__file__), "../color_map.json")
-        with open(color_map_path, "r") as f:
+        with open(color_map_path) as f:
             color_map = json.load(f)
         # Invert the mapping to get {value: name}
         value_to_name = {v: k for k, v in color_map.items()}
@@ -171,7 +163,7 @@ class LeafSegmenter:
         csv_path = os.path.join(segmented_dir, "results.csv")
         with open(csv_path, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            header = ["Image"] + header_classes
+            header = ["Image", *header_classes]
             writer.writerow(header)
             for img_file in image_files:
                 row = [img_file]

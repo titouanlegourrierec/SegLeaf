@@ -1,13 +1,14 @@
-"""
-Command-line interface for leaf segmentation using a trained Ilastik model.
-This script provides a convenient way to segment leaf images using the
-leaf_segmenter module.
-"""
+"""Command-line interface for leaf segmentation using Ilastik models."""
 
 import argparse
 import logging
 import os
 import sys
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # Add the parent directory to sys.path to allow importing the src module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 try:
     from src.image_processing.leaf_segmenter import segment_leaves
 except ImportError:
-    print("Error: Could not import segment_leaves. Make sure the module exists.")
+    logger.exception("Could not import segment_leaves. Make sure the module exists.")
     sys.exit(1)
 
 
@@ -25,10 +26,9 @@ def parse_args() -> argparse.Namespace:
 
     Returns:
         argparse.Namespace: The parsed command-line arguments.
+
     """
-    parser = argparse.ArgumentParser(
-        description="Segment leaf images using a trained Ilastik model."
-    )
+    parser = argparse.ArgumentParser(description="Segment leaf images using a trained Ilastik model.")
 
     parser.add_argument(
         "--model_path",
@@ -62,9 +62,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """
-    Main function to parse arguments and run leaf segmentation.
-    """
+    """Execute leaf segmentation based on command-line arguments."""
     args = parse_args()
 
     # Configure logging
@@ -80,7 +78,8 @@ def main() -> None:
         ("input_path", args.input_path),
     ]:
         if not os.path.exists(path_value):
-            logging.error(f"Error: {path_name} '{path_value}' does not exist.")
+            msg = f"Error: The specified {path_name} does not exist: {path_value}"
+            logger.error(msg)
             sys.exit(1)
 
     # Create output directory if it doesn't exist
@@ -88,14 +87,17 @@ def main() -> None:
 
     # Check if model file has the right extension
     if not args.model_path.lower().endswith(".ilp"):
-        logging.warning(
-            f"Warning: model_path '{args.model_path}' does not have .ilp extension."
-        )
+        msg = f"Warning: model_path '{args.model_path}' does not have .ilp extension."
+        logger.warning(msg)
 
     try:
-        logging.info(f"Starting leaf segmentation with model: {args.model_path}")
-        logging.info(f"Input directory: {args.input_path}")
-        logging.info(f"Output directory: {args.output_path}")
+        msg = (
+            f"Starting leaf segmentation with model: {args.model_path}\n"
+            f"Input directory: {args.input_path}\n"
+            f"Output directory: {args.output_path}"
+        )
+
+        logger.info(msg)
 
         # Run segmentation
         segment_leaves(
@@ -104,19 +106,19 @@ def main() -> None:
             output_path=args.output_path,
         )
 
-        logging.info(
-            f"Segmentation completed successfully. Results saved to {args.output_path}"
+        msg = (
+            f"Segmentation completed successfully. Results saved to {args.output_path}\n"
+            "A CSV report with pixel class statistics has been generated at"
+            f"{os.path.join(args.output_path, 'results.csv')}"
         )
-        logging.info(
-            f"A CSV report with pixel class statistics has been generated at {os.path.join(args.output_path, 'results.csv')}"
-        )
-
+        logger.info(msg)
     except Exception as e:
-        logging.error(f"Error during segmentation: {str(e)}")
+        msg = f"An error occurred during segmentation: {e!s}"
+        logger.exception(msg)
         if args.verbose:
-            import traceback
+            import traceback  # noqa: PLC0415
 
-            logging.error(traceback.format_exc())
+            logger.exception(traceback.format_exc())
         sys.exit(1)
 
 

@@ -1,3 +1,1 @@
-"""
-Utilities for working with the color map.
-"""
+"""Utilities for working with the color map."""

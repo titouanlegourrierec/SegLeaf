@@ -1,14 +1,11 @@
-"""
-This module provides the LeafSplitter class, which detects and splits leaves (or similar objects) from an image using
-image processing techniques. It identifies bounding boxes of objects in the image, crops them, and saves each part as
-a separate file in the desired color space.
-"""
+"""Module for splitting leaves from images and saving the cropped parts."""
 
+import logging
 from pathlib import Path
-from typing import Any, List, Tuple
 
-import cv2  # type: ignore[import]
+import cv2
 import numpy as np
+from PIL import Image as PILImage
 
 from src.config import (
     AREA_RATIO_THRESHOLD,
@@ -17,6 +14,10 @@ from src.config import (
     MARGIN,
     MAX_BINARY_VALUE,
 )
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class LeafSplitter:
@@ -32,6 +33,7 @@ class LeafSplitter:
         max_binary_value (int): Maximum value for binary thresholding.
         area_ratio_threshold (float): Minimum area ratio to consider a contour as a valid object.
         margin (int): Margin to add around detected bounding boxes.
+
     """
 
     def __init__(
@@ -39,31 +41,31 @@ class LeafSplitter:
         img_path: str,
         output_dir: str,
         color_space: str = "RGB",
-        blur_kernel: Tuple[int, int] = BLUR_KERNEL,
+        blur_kernel: tuple[int, int] = BLUR_KERNEL,
         binary_threshold: int = BINARY_THRESHOLD,
         max_binary_value: int = MAX_BINARY_VALUE,
         area_ratio_threshold: float = AREA_RATIO_THRESHOLD,
         margin: int = MARGIN,
     ) -> None:
+        """Initialize the LeafSplitter."""
         self.img_path: Path = Path(img_path)
         self.output_dir: Path = Path(output_dir)
         self.color_space: str = color_space.upper()
-        self.blur_kernel: Tuple[int, int] = blur_kernel
+        self.blur_kernel: tuple[int, int] = blur_kernel
         self.binary_threshold: int = binary_threshold
         self.max_binary_value: int = max_binary_value
         self.area_ratio_threshold: float = area_ratio_threshold
         self.margin: int = margin
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def _read_image(self) -> Any:
+    def read_image(self) -> np.ndarray | None:
         """
         Read the image using PIL and convert it to OpenCV format.
 
         Returns:
-            Any: Image as a NumPy array in BGR format for OpenCV
-        """
-        from PIL import Image as PILImage
+            np.ndarray | None: Image as a NumPy array in BGR format for OpenCV or None if reading fails
 
+        """
         # Disable DecompressionBomb safety check for large images
         PILImage.MAX_IMAGE_PIXELS = None
 
@@ -72,27 +74,26 @@ class LeafSplitter:
             pil_img = PILImage.open(str(self.img_path))
             img = np.array(pil_img.convert("RGB"))
             # Convert from RGB to BGR for OpenCV compatibility
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            return img
-        except Exception as e:
-            print(f"Error reading image {self.img_path}: {str(e)}")
+            return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        except (FileNotFoundError, OSError) as e:
+            msg = f"Error reading image {self.img_path}: {e!s}"
+            logger.exception(msg)
             return None
 
-    def detect_leaf_boxes(self, img: Any) -> List[List[int]]:
+    def detect_leaf_boxes(self, img: np.ndarray) -> list[list[int]]:
         """
         Detect bounding boxes of leaves (or objects) in the image.
 
         Args:
-            img (Any): Input image (as a NumPy array, BGR format).
+            img (np.ndarray): Input image (as a NumPy array, BGR format).
 
         Returns:
-            List[List[int]]: List of bounding boxes, each as [x1, y1, x2, y2].
+            list[list[int]]: List of bounding boxes, each as [x1, y1, x2, y2].
+
         """
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.blur(gray, self.blur_kernel)
-        _, binary = cv2.threshold(
-            blurred, self.binary_threshold, self.max_binary_value, cv2.THRESH_BINARY_INV
-        )
+        _, binary = cv2.threshold(blurred, self.binary_threshold, self.max_binary_value, cv2.THRESH_BINARY_INV)
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         areas = [cv2.contourArea(c) for c in contours]
         if not areas:
@@ -116,24 +117,21 @@ class LeafSplitter:
 
         Returns:
             None
-        """
-        from PIL import Image as PILImage
 
+        """
         # Use our helper method to read the image
-        img = self._read_image()
+        img = self.read_image()
 
         if img is None:
-            raise FileNotFoundError(
-                f"Image not found or could not be read: {self.img_path}"
-            )
+            msg = f"Image not found or could not be read: {self.img_path}"
+            raise FileNotFoundError(msg)
         bounding_boxes = self.detect_leaf_boxes(img)
         for i, box in enumerate(bounding_boxes):
             x1, y1, x2, y2 = box
             part = img[y1:y2, x1:x2]
             # Ajouter le nom de l'espace couleur au nom du fichier
             output_path = (
-                self.output_dir
-                / f"{self.img_path.stem}_{i + 1}_{self.color_space.upper()}{self.img_path.suffix}"  # noqa
+                self.output_dir / f"{self.img_path.stem}_{i + 1}_{self.color_space.upper()}{self.img_path.suffix}"
             )
             if self.color_space == "RGB":
                 # Convert BGR to RGB and save with PIL
@@ -145,20 +143,17 @@ class LeafSplitter:
                 cv2.imwrite(str(output_path), part_converted)
 
     def _convert_color_space(self, img: np.ndarray) -> np.ndarray:
-        """
-        Convert the image to the desired color space for saving.
-        """
+        """Convert the image to the desired color space for saving."""
         cs = self.color_space
         if cs == "RGB":
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        elif cs == "YUV":
+        if cs == "YUV":
             return cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-        elif cs == "HSV":
+        if cs == "HSV":
             return cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        elif cs == "LAB":
+        if cs == "LAB":
             return cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        elif cs == "HLS":
+        if cs == "HLS":
             return cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-        else:
-            # Default: no conversion
-            return img
+        # Default: no conversion
+        return img

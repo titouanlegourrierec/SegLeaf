@@ -1,18 +1,18 @@
-"""
-This module provides the BatchImageProcessor class and a split_leaves function for batch processing of images.
-It uses the LeafSplitter class to segment and save leaves from all images in a directory, and provides utilities
-for validating directories and gathering output statistics.
-"""
+"""Batch image processing using LeafSplitter."""
 
 import csv
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 from rich.console import Console
 
-import src.config as config
+from src import config
 from src.image_processing.leaf_splitter import LeafSplitter
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def split_leaves(input_dir: str, output_dir: str, color_space: str = "RGB") -> None:
@@ -23,34 +23,35 @@ def split_leaves(input_dir: str, output_dir: str, color_space: str = "RGB") -> N
         input_dir (str): Path to the input directory containing images.
         output_dir (str): Path to the output directory where split images will be saved.
         color_space (str): Color space to use for saving images ('RGB', 'YUV', 'HSV', 'LAB', 'HLS').
+
     """
     console = Console()
     processor = BatchImageProcessor(input_dir, output_dir, color_space)
     is_valid, error_message = processor.validate_directories()
     if not is_valid:
-        raise ValueError(f"Directory validation failed: {error_message}")
+        msg = f"Directory validation failed: {error_message}"
+        raise ValueError(msg)
 
     with console.status("[bold green]Processing images..."):
         processor.process_images(console=console)
 
 
 class BatchImageProcessor:
-    """
-    A class to handle batch processing of images using LeafSplitter.
-    color_space: str: Color space to use for saving images ('RGB', 'YUV', 'HSV', 'LAB', 'HLS').
-    """
+    """Class for batch processing of images using LeafSplitter."""
 
-    def __init__(self, input_dir: str, output_dir: str, color_space: str = "RGB"):
+    def __init__(self, input_dir: str, output_dir: str, color_space: str = "RGB") -> None:
+        """Initialize the BatchImageProcessor."""
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
         self.color_space = color_space.upper()
 
-    def validate_directories(self) -> Tuple[bool, str]:
+    def validate_directories(self) -> tuple[bool, str]:
         """
         Validate input and output directories.
 
         Returns:
             Tuple[bool, str]: (is_valid, error_message)
+
         """
         if not self.input_dir.exists() or not self.input_dir.is_dir():
             return False, "Input directory does not exist."
@@ -58,29 +59,25 @@ class BatchImageProcessor:
             return False, "Output directory does not exist."
         return True, ""
 
-    def find_images(self) -> List[Path]:
+    def find_images(self) -> list[Path]:
         """
         Find all image files in the input directory.
 
         Returns:
             List[Path]: List of image file paths
+
         """
         image_extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.gif"]
-        images = [
-            img_path
-            for ext in image_extensions
-            for img_path in self.input_dir.glob(ext)
-            if img_path.is_file()
-        ]
-        return images
+        return [img_path for ext in image_extensions for img_path in self.input_dir.glob(ext) if img_path.is_file()]
 
-    def process_images(self, progress_callback=None, console=None) -> None:
+    def process_images(self, progress_callback: callable | None = None, console: Console | None = None) -> None:
         """
         Process all images in the input directory.
 
         Args:
             progress_callback: Optional callback function to report progress
             console: Optional Rich console for displaying progress
+
         """
         images = self.find_images()
 
@@ -97,11 +94,9 @@ class BatchImageProcessor:
                 with Image.open(img_path) as orig_img:
                     orig_width, orig_height = orig_img.size
                     orig_image_dimensions[img_path.name] = (orig_width, orig_height)
-            except Exception as e:
+            except (OSError, ValueError) as e:  # noqa: PERF203
                 if console:
-                    console.log(
-                        f"[bold red]Error reading original image {img_path.name}: {str(e)}"
-                    )
+                    console.log(f"[bold red]Error reading original image {img_path.name}: {e!s}")
                 continue
 
         for idx, img_path in enumerate(images, 1):
@@ -120,7 +115,7 @@ class BatchImageProcessor:
                 )
 
                 # Get the bounding boxes before processing
-                img = splitter._read_image()
+                img = splitter.read_image()
                 if img is None:
                     if console:
                         console.log(f"[bold red]Error reading image {img_path.name}")
@@ -151,12 +146,10 @@ class BatchImageProcessor:
                     )
 
                 if console:
-                    console.log(
-                        f"[bold green]Processed image {idx}/{len(images)}: {img_path.name}"
-                    )
-            except Exception as e:
+                    console.log(f"[bold green]Processed image {idx}/{len(images)}: {img_path.name}")
+            except (OSError, ValueError) as e:
                 if console:
-                    console.log(f"[bold red]Error processing {img_path.name}: {str(e)}")
+                    console.log(f"[bold red]Error processing {img_path.name}: {e!s}")
 
             if progress_callback:
                 progress_callback(idx, len(images))
@@ -164,12 +157,13 @@ class BatchImageProcessor:
         # Save the image data to CSV
         self._save_image_data_csv(image_data)
 
-    def _save_image_data_csv(self, image_data: List[Dict]) -> None:
+    def _save_image_data_csv(self, image_data: list[dict]) -> None:
         """
         Save image data to a CSV file in the output directory.
 
         Args:
             image_data: List of dictionaries containing image data
+
         """
         if not image_data:
             return
@@ -192,32 +186,29 @@ class BatchImageProcessor:
 
     def get_output_stats(
         self,
-    ) -> Tuple[Optional[List[int]], Optional[List[int]], List[Path]]:
+    ) -> tuple[list[int] | None, list[int] | None, list[Path]]:
         """
         Compute statistics about the processed images.
 
         Returns:
             Tuple[Optional[List[int]], Optional[List[int]], List[Path]]:
             (widths, heights, image_paths)
+
         """
         image_extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.gif"]
-        output_images = [
-            f
-            for ext in image_extensions
-            for f in self.output_dir.glob(ext)
-            if f.is_file()
-        ]
+        output_images = [f for ext in image_extensions for f in self.output_dir.glob(ext) if f.is_file()]
 
         widths, heights = [], []
+        Image.MAX_IMAGE_PIXELS = None
         for img_path in output_images:
             try:
-                Image.MAX_IMAGE_PIXELS = None
-
                 with Image.open(img_path) as im:
                     # Convert pixels to millimeters: mm = (pixels / DPI) * 25.4
                     widths.append(im.width / config.DPI * 25.4)
                     heights.append(im.height / config.DPI * 25.4)
-            except Exception:
+            except (OSError, ValueError) as e:  # noqa: PERF203
+                msg = f"Error processing image {img_path}: {e!s}"
+                logger.exception(msg)
                 continue
 
         return widths, heights, output_images

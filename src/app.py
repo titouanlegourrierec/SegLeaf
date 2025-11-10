@@ -1,12 +1,12 @@
 """Entry point for the application."""
 
+import tkinter as tk
+
 from src.gui import App
 
 
-def main():
+def main() -> None:
     """Start the application."""
-    import tkinter as tk
-
     root = tk.Tk()
     App(root)
     root.mainloop()

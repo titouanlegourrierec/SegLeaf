@@ -1,24 +1,25 @@
-"""
-Command-line interface for generating ground truth masks from image annotations.
-This script takes image annotations in the form of a JSON file and generates ground truth masks
-for each image based on the provided segmentation information.
-"""
+"""Generate groundtruth images from VIA annotation JSON file."""
 
 import argparse
 import json
 import logging
 import os
-from typing import Any, Dict, List, Tuple
+import sys
+from typing import Any
 
 import cv2
 import numpy as np
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Default background value for mask backgrounds (white).
 # Change this value to set a different background color for your segmentation masks.
 BACKGROUND_COLOR = 255
 
 
-def load_color_map(colormap_path: str = "./src/color_map.json") -> Dict[str, int]:
+def load_color_map(colormap_path: str = "./src/color_map.json") -> dict[str, int]:
     """
     Load the color map used for generating masks from a JSON file.
 
@@ -27,19 +28,22 @@ def load_color_map(colormap_path: str = "./src/color_map.json") -> Dict[str, int
 
     Returns:
         dict: Dictionary mapping class names to color values.
+
     """
-    logging.info(f"Loading color map from {colormap_path}")
+    msg = f"Loading color map from {colormap_path}"
+    logger.info(msg)
     try:
-        with open(colormap_path, "r") as color_file:
+        with open(colormap_path) as color_file:
             return json.load(color_file)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        logging.error(f"Failed to load color map: {e}")
+        msg = f"Failed to load color map: {e}"
+        logger.exception(msg)
         raise
 
 
 def load_annotations(
     groundtruth_json_path: str = "./evaluation/ground_truth.json",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Load image annotations from a VIA (VGG Image Annotator) JSON file.
 
@@ -48,21 +52,24 @@ def load_annotations(
 
     Returns:
         dict: Dictionary containing image metadata and region annotations.
+
     """
-    logging.info(f"Loading annotations from {groundtruth_json_path}")
+    msg = f"Loading annotations from {groundtruth_json_path}"
+    logger.info(msg)
     try:
-        with open(groundtruth_json_path, "r") as annotation_file:
+        with open(groundtruth_json_path) as annotation_file:
             data = json.load(annotation_file)
         return data["_via_img_metadata"]
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        logging.error(f"Failed to load annotations: {e}")
+        msg = f"Failed to load annotations: {e}"
+        logger.exception(msg)
         raise
 
 
 def create_groundtruth(
-    img_shape: Tuple[int, int, int],
-    regions: List[Dict[str, Any]],
-    color_map: Dict[str, int],
+    img_shape: tuple[int, int, int],
+    regions: list[dict[str, Any]],
+    color_map: dict[str, int],
     background_color: int = BACKGROUND_COLOR,
 ) -> np.ndarray:
     """
@@ -76,6 +83,7 @@ def create_groundtruth(
 
     Returns:
         np.ndarray: The generated groundtruth image as a NumPy array.
+
     """
     height, width = img_shape[:2]
     mask = np.full((height, width), background_color, dtype=np.uint8)
@@ -90,7 +98,8 @@ def create_groundtruth(
 
         # Skip regions with unknown class names
         if class_name not in color_map:
-            logging.warning(f"Class '{class_name}' not in color_map, skipping region.")
+            msg = f"Class '{class_name}' not in color_map, skipping region."
+            logger.warning(msg)
             continue
 
         # Get color value for the class
@@ -100,16 +109,15 @@ def create_groundtruth(
         shape_type = shape_attr["name"]
         if shape_type == "polygon":
             # Create points array from x, y coordinates
-            points = np.array(
-                list(zip(shape_attr["all_points_x"], shape_attr["all_points_y"]))
-            )
+            points = np.array(list(zip(shape_attr["all_points_x"], shape_attr["all_points_y"], strict=False)))
         elif shape_type == "circle":
             # Convert circle to polygon points
             center = (int(shape_attr["cx"]), int(shape_attr["cy"]))
             radius = int(shape_attr["r"])
             points = np.array(cv2.ellipse2Poly(center, (radius, radius), 0, 0, 360, 1))
         else:
-            logging.warning(f"Unsupported shape: {shape_type}, skipping region.")
+            msg = f"Unsupported shape: {shape_type}, skipping region."
+            logger.warning(msg)
             continue
 
         # Draw filled contour with class color
@@ -124,7 +132,7 @@ def generate_groundtruth(
     groundtruth_dir: str = "./evaluation/groundtruth",
     colormap_path: str = "./src/color_map.json",
     background_color: int = BACKGROUND_COLOR,
-):
+) -> None:
     """
     Generate groundtruth images for all annotated images using the provided color map.
 
@@ -137,6 +145,7 @@ def generate_groundtruth(
 
     Returns:
         None
+
     """
     # Ensure output directory exists
     os.makedirs(groundtruth_dir, exist_ok=True)
@@ -145,7 +154,8 @@ def generate_groundtruth(
     color_map = load_color_map(colormap_path)
     annotations = load_annotations(groundtruth_json_path)
 
-    logging.info(f"Generating groundtruth for {len(annotations)} images.")
+    msg = f"Generating groundtruth for {len(annotations)} images."
+    logger.info(msg)
 
     # Process each annotated image
     for image_metadata in annotations.values():
@@ -155,29 +165,25 @@ def generate_groundtruth(
         # Load source image
         image = cv2.imread(img_path, cv2.IMREAD_COLOR)
         if image is None:
-            logging.error(f"Failed to load image: {img_path}")
+            msg = f"Failed to load image: {img_path}"
+            logger.error(msg)
             continue
 
         # Create groundtruth mask from annotations
-        mask = create_groundtruth(
-            image.shape, image_metadata["regions"], color_map, background_color
-        )
+        mask = create_groundtruth(image.shape, image_metadata["regions"], color_map, background_color)
 
         # Save generated mask
         output_path = os.path.join(groundtruth_dir, filename)
         cv2.imwrite(output_path, mask)
 
-    logging.info(f"Groundtruth generation completed. Masks saved to {groundtruth_dir}")
+    msg = f"Groundtruth generation completed. Masks saved to {groundtruth_dir}"
+    logger.info(msg)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    parser = argparse.ArgumentParser(
-        description="Generate groundtruth masks from VIA annotation JSON."
-    )
+    parser = argparse.ArgumentParser(description="Generate groundtruth masks from VIA annotation JSON.")
 
     parser.add_argument(
         "--images_to_segment_dir",
@@ -217,7 +223,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        logging.info("Starting groundtruth generation.")
+        logger.info("Starting groundtruth generation.")
         generate_groundtruth(
             groundtruth_json_path=args.groundtruth_json_path,
             images_to_segment_dir=args.images_to_segment_dir,
@@ -225,10 +231,11 @@ if __name__ == "__main__":
             colormap_path=args.colormap_path,
             background_color=args.background_color,
         )
-        logging.info("Groundtruth generation completed successfully.")
+        logger.info("Groundtruth generation completed successfully.")
     except Exception as e:
-        logging.error(f"Groundtruth generation failed: {e}")
+        msg = f"Groundtruth generation failed: {e}"
+        logger.exception(msg)
         import traceback
 
-        logging.error(traceback.format_exc())
-        exit(1)
+        logger.exception(traceback.format_exc())
+        sys.exit(1)

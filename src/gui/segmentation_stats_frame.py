@@ -1,28 +1,36 @@
 """Frame for displaying segmentation statistics."""
 
 import csv
+import logging
 import os
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional
 
-import cv2  # type: ignore
+import cv2
 import matplotlib.pyplot as plt
-import mplcursors  # type: ignore
+import mplcursors
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image, ImageTk
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 class SegmentationStatsFrame(ttk.Frame):
-    def update_stats(self):
+    """Frame for displaying segmentation statistics."""
+
+    def update_stats(self) -> None:
+        """Update the statistics plot."""
         self.load_stats()
 
     def __init__(
         self,
         parent: tk.Widget,
         output_dir_var: tk.StringVar,
-        input_dir_var: Optional[tk.StringVar] = None,
-    ):
+        input_dir_var: tk.StringVar | None = None,
+    ) -> None:
+        """Initialize the statistics frame."""
         super().__init__(parent)
         self.output_dir_var = output_dir_var
         self.input_dir_var = input_dir_var  # Variable for the input directory
@@ -32,19 +40,19 @@ class SegmentationStatsFrame(ttk.Frame):
         self._img_popup = None
         self._setup_widgets()
 
-    def _setup_widgets(self):
+    def _setup_widgets(self) -> None:
+        """Set up the widgets in the statistics frame."""
         # Dropdown for class selection
-        self.dropdown = ttk.Combobox(
-            self, textvariable=self.class_var, state="readonly"
-        )
+        self.dropdown = ttk.Combobox(self, textvariable=self.class_var, state="readonly")
         self.dropdown.pack(pady=5)
-        self.dropdown.bind("<<ComboboxSelected>>", lambda e: self.plot_stats())
+        self.dropdown.bind("<<ComboboxSelected>>", lambda _: self.plot_stats())
 
-    def load_stats(self):
+    def load_stats(self) -> None:
+        """Load statistics from CSV file."""
         csv_path = os.path.join(self.output_dir_var.get(), "results.csv")
         if not os.path.exists(csv_path):
             return
-        with open(csv_path, "r") as f:
+        with open(csv_path) as f:
             reader = csv.DictReader(f)
             self.rows = list(reader)
             self.class_options = [col for col in reader.fieldnames if col != "Image"]
@@ -53,7 +61,8 @@ class SegmentationStatsFrame(ttk.Frame):
             self.class_var.set(self.class_options[0])
             self.plot_stats()
 
-    def plot_stats(self):
+    def plot_stats(self) -> None:
+        """Plot the statistics."""
         if not hasattr(self, "rows") or not self.class_var.get():
             return
         areas = []
@@ -69,10 +78,7 @@ class SegmentationStatsFrame(ttk.Frame):
             props.append(prop)
             img_name = row["Image"]
             # If it's not an absolute path, take it from the output folder
-            if not os.path.isabs(img_name):
-                img_path = os.path.join(output_dir, img_name)
-            else:
-                img_path = img_name
+            img_path = os.path.join(output_dir, img_name) if not os.path.isabs(img_name) else img_name
             image_paths.append(img_path)
         # Remove old plot
         if self.stats_canvas:
@@ -82,9 +88,7 @@ class SegmentationStatsFrame(ttk.Frame):
         fig = plt.figure(figsize=(10, 8))
 
         # Create a grid with ratios (larger center plot, smaller histograms)
-        gs = fig.add_gridspec(
-            2, 2, width_ratios=(5, 1), height_ratios=(1, 5), hspace=0.02, wspace=0.02
-        )
+        gs = fig.add_gridspec(2, 2, width_ratios=(5, 1), height_ratios=(1, 5), hspace=0.02, wspace=0.02)
 
         # Create three axes
         ax_scatter = fig.add_subplot(gs[1, 0])  # main scatter plot
@@ -110,7 +114,7 @@ class SegmentationStatsFrame(ttk.Frame):
 
         # Histograms
         bins = min(int(len(areas) / 2), 30)  # More bins for better granularity
-        if bins < 10:  # Ensure at least 10 bins if we have enough data points
+        if bins < 10:  # Ensure at least 10 bins if we have enough data points  # noqa: PLR2004
             bins = max(10, len(areas) // 2)
 
         ax_histx.hist(areas, bins=bins, alpha=0.8, color="blue", edgecolor="black")
@@ -129,7 +133,8 @@ class SegmentationStatsFrame(ttk.Frame):
 
         cursor = mplcursors.cursor(scatter, hover=False)
 
-        def show_img_on_click(sel):
+        def show_img_on_click(sel: mplcursors.Selection) -> None:
+            """Show image preview when clicking a point in the scatter plot."""
             idx = sel.index
             if self._img_popup is not None and self._img_popup.winfo_exists():
                 self._img_popup.destroy()
@@ -142,7 +147,7 @@ class SegmentationStatsFrame(ttk.Frame):
 
                     # Find and load the corresponding input image
                     output_basename = os.path.basename(output_img_path)
-                    output_name, output_ext = os.path.splitext(output_basename)
+                    output_name, _ = os.path.splitext(output_basename)
 
                     # Get the input directory
                     input_dir = ""
@@ -160,18 +165,14 @@ class SegmentationStatsFrame(ttk.Frame):
 
                         # Try all possible color spaces
                         for cs in color_spaces:
-                            possible_path = os.path.join(
-                                input_dir, f"{output_name}_{cs}.jpg"
-                            )
+                            possible_path = os.path.join(input_dir, f"{output_name}_{cs}.jpg")
                             if os.path.exists(possible_path):
                                 input_img_path = possible_path
                                 break
 
                         # If no variant is found, try without color space
                         if not input_img_path:
-                            fallback_path = os.path.join(
-                                input_dir, f"{output_name}.jpg"
-                            )
+                            fallback_path = os.path.join(input_dir, f"{output_name}.jpg")
                             if os.path.exists(fallback_path):
                                 input_img_path = fallback_path
 
@@ -183,10 +184,7 @@ class SegmentationStatsFrame(ttk.Frame):
                     max_w, max_h = int(screen_w * 0.9), int(screen_h * 0.9)
 
                     # Resize the output image if necessary
-                    if (
-                        output_orig_img.width > max_w / 2
-                        or output_orig_img.height > max_h  # noqa
-                    ):
+                    if output_orig_img.width > max_w / 2 or output_orig_img.height > max_h:
                         ratio = min(
                             max_w / 2 / output_orig_img.width,
                             max_h / output_orig_img.height,
@@ -262,10 +260,7 @@ class SegmentationStatsFrame(ttk.Frame):
                         input_orig_img = Image.fromarray(cv_img_rgb)
 
                         # Resize the input image to have the same aspect ratio as the output image
-                        if (
-                            input_orig_img.width > max_w / 2
-                            or input_orig_img.height > max_h  # noqa
-                        ):
+                        if input_orig_img.width > max_w / 2 or input_orig_img.height > max_h:
                             ratio = min(
                                 max_w / 2 / input_orig_img.width,
                                 max_h / input_orig_img.height,
@@ -287,15 +282,14 @@ class SegmentationStatsFrame(ttk.Frame):
                         # Add labels to distinguish the images
                         ttk.Label(left_frame, text="Input Image").pack(side="top")
                         ttk.Label(right_frame, text="Segmented Image").pack(side="top")
-                    except Exception:
+                    except FileNotFoundError:
                         # If the input image does not exist, display a message
-                        input_label.config(
-                            text=f"Input image not found:\n{input_img_path}"
-                        )
+                        input_label.config(text=f"Input image not found:\n{input_img_path}")
 
                     self._img_popup = popup
                 except Exception as e:
-                    print(f"Error displaying images: {e}")
+                    msg = f"Error displaying images: {e}"
+                    logger.exception(msg)
             sel.annotation.set_visible(False)
 
         cursor.connect("add", show_img_on_click)

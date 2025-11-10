@@ -6,19 +6,20 @@ import typing
 from tkinter import filedialog, messagebox, ttk
 
 import matplotlib.pyplot as plt
-import mplcursors  # type: ignore
+import mplcursors
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image, ImageTk
 
-import src.config as config
+from src import config
 from src.image_processing.batch_processor import BatchImageProcessor
 
 
 class ImageSplitterTab(ttk.Frame):
     """Tab containing the image splitting interface."""
 
-    def __init__(self, parent: tk.Widget):
+    def __init__(self, parent: tk.Widget) -> None:
+        """Initialize the ImageSplitterTab."""
         super().__init__(parent)
         self.input_dir = tk.StringVar()
         self.output_dir = tk.StringVar()
@@ -28,24 +29,18 @@ class ImageSplitterTab(ttk.Frame):
         self._setup_layout()
         self._create_widgets()
 
-    def _setup_layout(self):
+    def _setup_layout(self) -> None:
         """Set up the main layout with left and right frames."""
         self.left_frame = tk.Frame(self, width=300)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
         self.right_frame = tk.Frame(self)
-        self.right_frame.pack(
-            side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10
-        )
+        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    def _create_widgets(self):
+    def _create_widgets(self) -> None:
         """Create all widgets for the tab."""
-        self._add_directory_selector(
-            "Input Directory:", self.input_dir, self.browse_input
-        )
-        self._add_directory_selector(
-            "Output Directory:", self.output_dir, self.browse_output
-        )
+        self._add_directory_selector("Input Directory:", self.input_dir, self.browse_input)
+        self._add_directory_selector("Output Directory:", self.output_dir, self.browse_output)
 
         # Color space dropdown
         tk.Label(self.left_frame, text="Color Space:").pack(pady=(10, 0))
@@ -70,16 +65,14 @@ class ImageSplitterTab(ttk.Frame):
         # Validate function to ensure only integers are entered
         def validate_dpi(action: str, value_if_allowed: str) -> bool:
             if action == "1":  # insert
-                if value_if_allowed.isdigit() and int(value_if_allowed) > 0:
-                    return True
-                return False
+                return bool(value_if_allowed.isdigit() and int(value_if_allowed) > 0)
             return True
 
         vcmd = (self.register(validate_dpi), "%d", "%P")
         dpi_entry.config(validate="key", validatecommand=vcmd)
 
         # Update DPI value when changed
-        def update_dpi(*args):
+        def update_dpi(*_args) -> None:  # noqa: ANN002
             try:
                 new_dpi = int(self.dpi_value.get())
                 if new_dpi > 0:
@@ -97,23 +90,17 @@ class ImageSplitterTab(ttk.Frame):
         ).pack(pady=18)
 
         # Progress bar (hidden by default)
-        self.progress = ttk.Progressbar(
-            self.left_frame, orient="horizontal", length=220, mode="determinate"
-        )
+        self.progress = ttk.Progressbar(self.left_frame, orient="horizontal", length=220, mode="determinate")
         self.progress.pack(pady=(0, 10))
         self.progress.pack_forget()
 
         # Stats zone
-        self.stats_label = tk.Label(
-            self.right_frame, text="", font=("Arial", 12), justify="left", anchor="nw"
-        )
+        self.stats_label = tk.Label(self.right_frame, text="", font=("Arial", 12), justify="left", anchor="nw")
         self.stats_label.pack(pady=10, anchor="nw")
         self.stats_canvas = None
         self._img_popup = None
 
-    def _add_directory_selector(
-        self, label: str, var: tk.StringVar, command: typing.Callable
-    ) -> None:
+    def _add_directory_selector(self, label: str, var: tk.StringVar, command: typing.Callable) -> None:
         """Add a directory selection widget with label and browse button."""
         tk.Label(self.left_frame, text=label).pack(pady=(10, 0))
         entry_frame = tk.Frame(self.left_frame)
@@ -121,22 +108,22 @@ class ImageSplitterTab(ttk.Frame):
         tk.Entry(entry_frame, textvariable=var, width=24).pack(side=tk.LEFT, padx=2)
         tk.Button(entry_frame, text="Browse", command=command).pack(side=tk.LEFT)
 
-    def browse_input(self):
+    def browse_input(self) -> None:
         """Open file dialog to select input directory."""
         path = filedialog.askdirectory(title="Choose Input Directory")
         if path:
             self.input_dir.set(path)
 
-    def browse_output(self):
+    def browse_output(self) -> None:
         """Open file dialog to select output directory."""
         path = filedialog.askdirectory(title="Choose Output Directory")
         if path:
             self.output_dir.set(path)
 
-    def run_split(self):
+    def run_split(self) -> None:
         """Start the image splitting process in a separate thread."""
 
-        def process():
+        def process() -> None:
             processor = BatchImageProcessor(
                 self.input_dir.get(),
                 self.output_dir.get(),
@@ -157,7 +144,7 @@ class ImageSplitterTab(ttk.Frame):
             self.after(0, self.progress.pack)
             self.after(0, lambda: self.progress.config(maximum=len(images), value=0))
 
-            def update_progress(current, total):
+            def update_progress(current: int) -> None:
                 self.after(0, lambda: self.progress.config(value=current))
 
             processor.process_images(progress_callback=update_progress)
@@ -165,9 +152,7 @@ class ImageSplitterTab(ttk.Frame):
 
             # Get stats about processed images
             widths, heights, output_images = processor.get_output_stats()
-            self.after(
-                0, lambda: self.show_stats_from_data(widths, heights, output_images)
-            )
+            self.after(0, lambda: self.show_stats_from_data(widths, heights, output_images))
 
         threading.Thread(target=process).start()
 
@@ -179,9 +164,7 @@ class ImageSplitterTab(ttk.Frame):
         """Show warning message dialog."""
         self.after(0, lambda: messagebox.showwarning("Warning", msg))
 
-    def show_stats_from_data(
-        self, widths: list, heights: list, image_paths: list
-    ) -> None:
+    def show_stats_from_data(self, widths: list, heights: list, image_paths: list) -> None:
         """Display statistics and scatter plot of processed images."""
         if not widths or not heights:
             self.stats_label.config(text="Impossible to read image dimensions.")
@@ -204,9 +187,7 @@ class ImageSplitterTab(ttk.Frame):
         fig = plt.figure(figsize=(10, 8))
 
         # Create a grid with ratios (larger center plot, smaller histograms)
-        gs = fig.add_gridspec(
-            2, 2, width_ratios=(5, 1), height_ratios=(1, 5), hspace=0.02, wspace=0.02
-        )
+        gs = fig.add_gridspec(2, 2, width_ratios=(5, 1), height_ratios=(1, 5), hspace=0.02, wspace=0.02)
 
         # Create three axes
         ax_scatter = fig.add_subplot(gs[1, 0])  # main scatter plot
@@ -226,7 +207,7 @@ class ImageSplitterTab(ttk.Frame):
 
         # Histograms
         bins = min(int(len(widths) / 2), 30)  # More bins for better granularity
-        if bins < 10:  # Ensure at least 10 bins if we have enough data points
+        if bins < 10:  # Ensure at least 10 bins if we have enough data points  # noqa: PLR2004
             bins = max(10, len(widths) // 2)
 
         ax_histx.hist(widths, bins=bins, alpha=0.8, color="blue", edgecolor="black")
@@ -244,7 +225,7 @@ class ImageSplitterTab(ttk.Frame):
 
         cursor = mplcursors.cursor(scatter, hover=False)
 
-        def show_img_on_click(sel):
+        def show_img_on_click(sel: mplcursors.Selection) -> None:
             """Show image preview when clicking a point in the scatter plot."""
             idx = sel.index
             if self._img_popup is not None and self._img_popup.winfo_exists():
@@ -269,9 +250,7 @@ class ImageSplitterTab(ttk.Frame):
 
                     popup = tk.Toplevel(self)
                     popup.title(f"Preview: {image_paths[idx].name}")
-                    popup.geometry(
-                        f"{min(disp_img.width * 2, screen_w)}x{min(disp_img.height, screen_h)}+0+0"
-                    )
+                    popup.geometry(f"{min(disp_img.width * 2, screen_w)}x{min(disp_img.height, screen_h)}+0+0")
 
                     label = tk.Label(popup)
                     label.pack(expand=True, fill="both")
@@ -279,7 +258,7 @@ class ImageSplitterTab(ttk.Frame):
                     label.config(image=img_tk)
                     label.image = img_tk
                     self._img_popup = popup
-                except Exception:
+                except OSError:
                     pass
             sel.annotation.set_visible(False)
 

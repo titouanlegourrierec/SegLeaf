@@ -1,8 +1,7 @@
-"""
-Command-line interface for leaf splitting and segmentation.
-"""
+"""Command-line interface for leaf image processing tools."""
 
 import argparse
+import logging
 import os
 import sys
 
@@ -10,7 +9,11 @@ from .image_processing.batch_processor import split_leaves
 from .image_processing.leaf_segmenter import segment_leaves
 
 
-def validate_path(path: str, should_exist: bool = True) -> str:
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def validate_path(path: str, *, should_exist: bool = True) -> str:
     """
     Validate if a path exists or can be created.
 
@@ -20,9 +23,11 @@ def validate_path(path: str, should_exist: bool = True) -> str:
 
     Returns:
         str: The validated path
+
     """
     if should_exist and not os.path.exists(path):
-        raise argparse.ArgumentTypeError(f"Path does not exist: {path}")
+        msg = f"Path does not exist: {path}"
+        raise argparse.ArgumentTypeError(msg)
 
     if not should_exist:
         # Check if parent directory exists for output paths
@@ -30,10 +35,9 @@ def validate_path(path: str, should_exist: bool = True) -> str:
         if parent_dir and not os.path.exists(parent_dir):
             try:
                 os.makedirs(parent_dir, exist_ok=True)
-            except Exception as e:
-                raise argparse.ArgumentTypeError(
-                    f"Cannot create directory: {parent_dir}. Error: {e}"
-                )
+            except OSError as e:
+                msg = f"Cannot create directory: {parent_dir}. Error: {e}"
+                raise argparse.ArgumentTypeError(msg) from None
     return path
 
 
@@ -46,38 +50,31 @@ def validate_color_space(value: str) -> str:
 
     Returns:
         str: The validated color space value
+
     """
     valid_spaces = ["RGB", "YUV", "HSV", "LAB", "HLS"]
     value = value.upper()
     if value not in valid_spaces:
-        raise argparse.ArgumentTypeError(
-            f"Invalid color space: {value}. Valid options are: {', '.join(valid_spaces)}"
-        )
+        msg = f"Invalid color space: {value}. Valid options are: {', '.join(valid_spaces)}"
+        raise argparse.ArgumentTypeError(msg)
     return value
 
 
-def main():
-    """
-    Command-line interface for leaf image processing tools.
-    Provides commands to segment or split leaves in an image.
-    """
-    parser = argparse.ArgumentParser(
-        description="Leaf image processing tools: segment or split leaves from images."
-    )
+def main() -> None:
+    """Parse arguments and execute commands."""
+    parser = argparse.ArgumentParser(description="Leaf image processing tools: segment or split leaves from images.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Command to split leaves
-    parser_split = subparsers.add_parser(
-        "split", help="Split leaves in input images into individual leaf images."
-    )
+    parser_split = subparsers.add_parser("split", help="Split leaves in input images into individual leaf images.")
     parser_split.add_argument(
         "input",
-        type=lambda x: validate_path(x, True),
+        type=lambda x: validate_path(x, should_exist=True),
         help="Path to the input directory containing images to split",
     )
     parser_split.add_argument(
         "output",
-        type=lambda x: validate_path(x, False),
+        type=lambda x: validate_path(x, should_exist=False),
         help="Path to the output directory where split images will be saved",
     )
     parser_split.add_argument(
@@ -89,22 +86,20 @@ def main():
     )
 
     # Command to segment leaves
-    parser_segment = subparsers.add_parser(
-        "segment", help="Segment leaves in input images using a trained model."
-    )
+    parser_segment = subparsers.add_parser("segment", help="Segment leaves in input images using a trained model.")
     parser_segment.add_argument(
         "model",
-        type=lambda x: validate_path(x, True),
+        type=lambda x: validate_path(x, should_exist=True),
         help="Path to the trained model file (.ilp)",
     )
     parser_segment.add_argument(
         "input",
-        type=lambda x: validate_path(x, True),
+        type=lambda x: validate_path(x, should_exist=True),
         help="Path to the input directory containing images to segment",
     )
     parser_segment.add_argument(
         "output",
-        type=lambda x: validate_path(x, False),
+        type=lambda x: validate_path(x, should_exist=False),
         help="Path to the output directory where segmented images will be saved",
     )
 
@@ -118,7 +113,8 @@ def main():
         else:
             parser.print_help()
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        msg = f"Error: {e}"
+        logger.exception(msg)
         sys.exit(1)
 
 

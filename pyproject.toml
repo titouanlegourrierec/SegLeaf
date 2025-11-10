@@ -4,12 +4,23 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "easilastik>=1.0.2",
+    "matplotlib>=3.10.7",
+    "mplcursors>=0.7",
+    "numpy>=2.2.6",
+    "opencv-python>=4.11.0.86",
+    "pandas>=2.3.3",
+    "pillow>=12.0.0",
+    "rich>=14.2.0",
+    "scikit-learn>=1.7.2",
+]
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
     "ruff>=0.14.4",
+    "ty>=0.0.1a25",
 ]
 
 [tool.ruff]
@@ -17,11 +28,16 @@ target-version = "py310"
 line-length = 119
 
 [tool.ruff.lint]
+pylint.max-branches = 20
+pylint.max-statements = 130
+mccabe.max-complexity = 24
+pylint.max-args = 10
 select = ["ALL"]
 ignore = [
     "COM812",   # Checks for the absence of trailing commas. (conflict with the formatter)
     "D203",     # Checks for docstrings on class definitions that are not preceded by a blank line. (conflict with D211)
     "D212",     # Checks for docstring summary lines that are not positioned on the first physical line of the docstring. (conflict with D213)
+    "PTH"
 ]
 
 [tool.ruff.lint.isort]

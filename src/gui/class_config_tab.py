@@ -1,6 +1,7 @@
 """Tab for configuring class names and colors for segmentation."""
 
 import json
+import logging
 import os
 import random
 import tkinter as tk
@@ -9,15 +10,18 @@ from tkinter import messagebox, ttk
 from src.utils.color_map_utils import get_color_map
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 class ClassConfigTab(ttk.Frame):
     """Tab for configuring segmentation classes and their colors."""
 
-    def __init__(self, parent):
+    def __init__(self, parent: tk.Widget) -> None:
+        """Initialize the class configuration tab."""
         super().__init__(parent)
         # Use the same path as in color_map_utils.py
-        self.color_map_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "color_map.json"
-        )
+        self.color_map_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "color_map.json")
         self.class_entries = []  # Store references to entry widgets
         self.update_scheduled = False  # To avoid too many updates
         self.setup_ui()
@@ -25,7 +29,7 @@ class ClassConfigTab(ttk.Frame):
         # Longer loading delay to ensure the interface is fully rendered
         self.after(200, self.delayed_load)
 
-    def delayed_load(self):
+    def delayed_load(self) -> None:
         """Delayed loading with multiple interface refreshes."""
         self.load_color_map()
         # Schedule multiple preview refreshes
@@ -33,26 +37,24 @@ class ClassConfigTab(ttk.Frame):
         self.after(300, self.refresh_preview)
         self.after(500, self.refresh_preview)
 
-    def refresh_preview(self):
+    def refresh_preview(self) -> None:
         """Force a complete update of the preview and interface."""
         self.update_preview()
         self.update_idletasks()  # Force processing of pending interface tasks
 
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         """Set up the main UI components."""
         # Split into two frames
         self.left_frame = ttk.Frame(self, width=400)  # Wider left frame
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
         self.right_frame = ttk.Frame(self)
-        self.right_frame.pack(
-            side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10
-        )
+        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Title and instructions
-        ttk.Label(
-            self.left_frame, text="Class Configuration", font=("Arial", 12, "bold")
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(self.left_frame, text="Class Configuration", font=("Arial", 12, "bold")).pack(
+            anchor=tk.W, pady=(0, 10)
+        )
 
         ttk.Label(
             self.left_frame,
@@ -67,14 +69,12 @@ class ClassConfigTab(ttk.Frame):
 
         # Canvas for scrolling
         self.canvas = tk.Canvas(self.entries_frame, width=380)  # Set initial width
-        self.scrollbar = ttk.Scrollbar(
-            self.entries_frame, orient="vertical", command=self.canvas.yview
-        )
+        self.scrollbar = ttk.Scrollbar(self.entries_frame, orient="vertical", command=self.canvas.yview)
         self.classes_frame = ttk.Frame(self.canvas)
 
         self.classes_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+            lambda _: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
         )
 
         self.canvas.create_window((0, 0), window=self.classes_frame, anchor="nw")
@@ -87,20 +87,14 @@ class ClassConfigTab(ttk.Frame):
         self.buttons_frame = ttk.Frame(self.left_frame)
         self.buttons_frame.pack(fill=tk.X, pady=10)
 
-        self.add_button = ttk.Button(
-            self.buttons_frame, text="Add Class", command=self.add_empty_class
-        )
+        self.add_button = ttk.Button(self.buttons_frame, text="Add Class", command=self.add_empty_class)
         self.add_button.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.save_button = ttk.Button(
-            self.buttons_frame, text="Save", command=self.save_color_map
-        )
+        self.save_button = ttk.Button(self.buttons_frame, text="Save", command=self.save_color_map)
         self.save_button.pack(side=tk.RIGHT)
 
         # Preview area
-        ttk.Label(
-            self.right_frame, text="Class Preview", font=("Arial", 12, "bold")
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(self.right_frame, text="Class Preview", font=("Arial", 12, "bold")).pack(anchor=tk.W, pady=(0, 10))
 
         self.preview_canvas = tk.Canvas(
             self.right_frame,
@@ -111,11 +105,9 @@ class ClassConfigTab(ttk.Frame):
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
 
         # Refresh preview when canvas is resized
-        self.preview_canvas.bind(
-            "<Configure>", lambda e: self.after(100, self.update_preview)
-        )
+        self.preview_canvas.bind("<Configure>", lambda _: self.after(100, self.update_preview))
 
-    def load_color_map(self):
+    def load_color_map(self) -> None:
         """Load the existing color map from the JSON file."""
         try:
             self.color_map = get_color_map()
@@ -147,18 +139,18 @@ class ClassConfigTab(ttk.Frame):
             self.update_idletasks()
             self.update_preview()
 
-        except Exception as e:
+        except (FileNotFoundError, json.JSONDecodeError) as e:
             messagebox.showerror(
                 "Error Loading Color Map",
-                f"An error occurred while loading the color map: {str(e)}",
+                f"An error occurred while loading the color map: {e!s}",
             )
             self.color_map = {}
             self.add_empty_class()
 
-    def add_empty_class(self):
+    def add_empty_class(self) -> None:
         """Add an empty class entry row."""
         # Generate a random value between 0 and 255 that's not already used
-        used_values = [val for val in self.color_map.values()]
+        used_values = list(self.color_map.values())
         available_values = [i for i in range(64, 256, 64) if i not in used_values]
 
         # If all standard values are used, find any available value
@@ -166,19 +158,19 @@ class ClassConfigTab(ttk.Frame):
             available_values = [i for i in range(1, 256) if i not in used_values]
 
         # If somehow all 255 values are used (unlikely), just use 0
-        value = random.choice(available_values) if available_values else 0
+        value = random.choice(available_values) if available_values else 0  # noqa: S311
 
-        print(f"Adding new class with value: {value}")
-        name_var, value_var = self.add_class_entry("", str(value))
+        msg = f"Adding new class with value: {value}"
+        logger.info(msg)
+        self.add_class_entry("", str(value))
 
         # Update preview immediately and force refresh
         self.update_preview()
         self.update_idletasks()
-        print(f"After adding: {len(self.class_entries)} entries")
+        msg = f"After adding: {len(self.class_entries)} entries"
+        logger.info(msg)
 
-    def add_class_entry(
-        self, class_name: str = "", class_value: str = ""
-    ) -> tuple[tk.StringVar, tk.StringVar]:
+    def add_class_entry(self, class_name: str = "", class_value: str = "") -> tuple[tk.StringVar, tk.StringVar]:
         """Add a new class entry row to the configuration."""
         row_frame = tk.Frame(self.classes_frame, padx=3, pady=5, relief=tk.GROOVE, bd=1)
         row_frame.pack(fill=tk.X, padx=5, pady=3, ipady=3)
@@ -191,7 +183,7 @@ class ClassConfigTab(ttk.Frame):
         name_entry.pack(side=tk.LEFT, padx=(0, 10))
 
         # Add trace to update preview when name changes
-        name_var.trace_add("write", lambda *args: self.update_preview())
+        name_var.trace_add("write", lambda *_: self.update_preview())
 
         # Class value entry
         value_label = tk.Label(row_frame, text="Value:")
@@ -201,7 +193,7 @@ class ClassConfigTab(ttk.Frame):
         value_entry.pack(side=tk.LEFT, padx=(0, 10))
 
         # Add trace to update preview when value changes
-        value_var.trace_add("write", lambda *args: self.update_preview())
+        value_var.trace_add("write", lambda *_: self.update_preview())
 
         # Remove button - improved visibility
         remove_button = tk.Button(
@@ -228,14 +220,15 @@ class ClassConfigTab(ttk.Frame):
             return True
         try:
             value = int(new_value)
-            return 0 <= value <= 255
         except ValueError:
             return False
+        else:
+            return 0 <= value <= 255  # noqa: PLR2004
 
     def remove_class_entry(self, row_frame: tk.Frame) -> None:
         """Remove a class entry row."""
         # Find and remove from our tracked lists
-        for i, (name_var, value_var, frame) in enumerate(self.class_entries):
+        for i, (_, _, frame) in enumerate(self.class_entries):
             if frame == row_frame:
                 self.class_entries.pop(i)
                 break
@@ -244,7 +237,7 @@ class ClassConfigTab(ttk.Frame):
         row_frame.destroy()
         self.update_preview()
 
-    def update_preview(self):
+    def update_preview(self) -> None:
         """Update the color preview canvas with debouncing to avoid too frequent updates."""
         # If an update is already scheduled, do nothing
         if self.update_scheduled:
@@ -256,7 +249,7 @@ class ClassConfigTab(ttk.Frame):
         # Schedule the actual update after a short delay (100ms)
         self.after(100, self._do_update_preview)
 
-    def _do_update_preview(self):
+    def _do_update_preview(self) -> None:
         """Actual implementation of the preview update."""
         # Reset flag to allow future updates
         self.update_scheduled = False
@@ -279,7 +272,7 @@ class ClassConfigTab(ttk.Frame):
         classes = []
         class_values = []
 
-        for name_var, value_var, frame in self.class_entries:
+        for name_var, value_var, _ in self.class_entries:
             class_name = name_var.get().strip()
 
             # Get the value
@@ -321,7 +314,7 @@ class ClassConfigTab(ttk.Frame):
             )
 
             # Draw text (white or black depending on background)
-            text_color = "white" if value < 128 else "black"
+            text_color = "white" if value < 128 else "black"  # noqa: PLR2004
             self.preview_canvas.create_text(
                 20,
                 y_pos + block_height / 2,
@@ -333,14 +326,14 @@ class ClassConfigTab(ttk.Frame):
 
             y_pos += block_height + 5
 
-    def save_color_map(self):
+    def save_color_map(self) -> None:
         """Save the current classes and values to the color_map.json file."""
         new_color_map = {}
         duplicate_values = set()
         empty_names = False
 
         # Collect all class entries
-        for name_var, value_var, frame in self.class_entries:
+        for name_var, value_var, _ in self.class_entries:
             class_name = name_var.get().strip()
 
             # Skip empty class names
@@ -362,14 +355,13 @@ class ClassConfigTab(ttk.Frame):
 
         # Validate before saving
         if empty_names:
-            messagebox.showwarning(
-                "Empty Names", "Some classes have empty names and will be skipped."
-            )
+            messagebox.showwarning("Empty Names", "Some classes have empty names and will be skipped.")
 
         if duplicate_values:
             messagebox.showerror(
                 "Duplicate Values",
-                f"Found duplicate values: {', '.join(map(str, duplicate_values))}. Each class must have a unique value.",
+                f"Found duplicate values: {', '.join(map(str, duplicate_values))}.",
+                "Each class must have a unique value.",
             )
             return
 
@@ -391,7 +383,5 @@ class ClassConfigTab(ttk.Frame):
 
             # Update our internal color map
             self.color_map = new_color_map
-        except Exception as e:
-            messagebox.showerror(
-                "Error Saving", f"An error occurred while saving: {str(e)}"
-            )
+        except OSError as e:
+            messagebox.showerror("Error Saving", f"An error occurred while saving: {e!s}")
