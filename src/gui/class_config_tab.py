@@ -2,9 +2,9 @@
 
 import json
 import logging
-import os
 import random
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 
 from src.utils.color_map_utils import get_color_map
@@ -21,7 +21,7 @@ class ClassConfigTab(ttk.Frame):
         """Initialize the class configuration tab."""
         super().__init__(parent)
         # Use the same path as in color_map_utils.py
-        self.color_map_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "color_map.json")
+        self.color_map_path = Path(__file__).parent.parent / "color_map.json"
         self.class_entries = []  # Store references to entry widgets
         self.update_scheduled = False  # To avoid too many updates
         self.setup_ui()
@@ -374,7 +374,7 @@ class ClassConfigTab(ttk.Frame):
 
         # Save to the file
         try:
-            with open(self.color_map_path, "w") as f:
+            with Path(self.color_map_path).open("w") as f:
                 json.dump(new_color_map, f, indent=4)
             messagebox.showinfo(
                 "Success",

@@ -179,7 +179,7 @@ class BatchImageProcessor:
             "original_height",
         ]
 
-        with open(csv_path, "w", newline="") as csvfile:
+        with csv_path.open("w", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(image_data)

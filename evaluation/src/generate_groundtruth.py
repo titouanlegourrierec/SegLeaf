@@ -3,8 +3,8 @@
 import argparse
 import json
 import logging
-import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -33,7 +33,7 @@ def load_color_map(colormap_path: str = "./src/color_map.json") -> dict[str, int
     msg = f"Loading color map from {colormap_path}"
     logger.info(msg)
     try:
-        with open(colormap_path) as color_file:
+        with Path(colormap_path).open() as color_file:
             return json.load(color_file)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         msg = f"Failed to load color map: {e}"
@@ -57,7 +57,7 @@ def load_annotations(
     msg = f"Loading annotations from {groundtruth_json_path}"
     logger.info(msg)
     try:
-        with open(groundtruth_json_path) as annotation_file:
+        with Path(groundtruth_json_path).open() as annotation_file:
             data = json.load(annotation_file)
         return data["_via_img_metadata"]
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -148,7 +148,7 @@ def generate_groundtruth(
 
     """
     # Ensure output directory exists
-    os.makedirs(groundtruth_dir, exist_ok=True)
+    Path(groundtruth_dir).mkdir(parents=True, exist_ok=True)
 
     # Load class color mapping and annotations
     color_map = load_color_map(colormap_path)
@@ -160,7 +160,7 @@ def generate_groundtruth(
     # Process each annotated image
     for image_metadata in annotations.values():
         filename = image_metadata["filename"]
-        img_path = os.path.join(images_to_segment_dir, filename)
+        img_path = str(Path(images_to_segment_dir) / filename)
 
         # Load source image
         image = cv2.imread(img_path, cv2.IMREAD_COLOR)
@@ -173,7 +173,7 @@ def generate_groundtruth(
         mask = create_groundtruth(image.shape, image_metadata["regions"], color_map, background_color)
 
         # Save generated mask
-        output_path = os.path.join(groundtruth_dir, filename)
+        output_path = str(Path(groundtruth_dir) / filename)
         cv2.imwrite(output_path, mask)
 
     msg = f"Groundtruth generation completed. Masks saved to {groundtruth_dir}"

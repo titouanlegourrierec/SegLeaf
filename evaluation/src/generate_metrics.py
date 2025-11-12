@@ -6,6 +6,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -31,7 +32,8 @@ except ImportError:
 
 
 # Add the project root directory to Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from src.config import DPI as DEFAULT_DPI  # noqa: E402
 
 
@@ -187,12 +189,12 @@ def process_single_file(
         list[dict[str, float]]: A list of dictionaries containing metrics for each class.
 
     """
-    file_name, ext = os.path.splitext(entry.name)
+    file_name, ext = Path(entry.name).stem, Path(entry.name).suffix
     if ext.lower() not in VALID_EXTENSIONS:
         return []
 
-    prediction_path = os.path.join(segmented_images_dir, f"{file_name}.png")
-    ground_truth_path = os.path.join(groundtruth_dir, f"{file_name}{ext}")
+    prediction_path = Path(segmented_images_dir) / f"{file_name}{ext}"
+    ground_truth_path = Path(groundtruth_dir) / f"{file_name}{ext}"
 
     if console:
         console.print(f"[cyan]Processing image:[/] [bold]{file_name}[/]")
@@ -200,7 +202,7 @@ def process_single_file(
         msg = f"Processing image: {file_name}"
         logger.info(msg)
 
-    if not os.path.exists(prediction_path) or not os.path.exists(ground_truth_path):
+    if not prediction_path.exists() or not ground_truth_path.exists():
         error_msg = f"Missing prediction or ground truth for {file_name}"
         if console:
             console.print(f"[bold red]{error_msg}[/]")

@@ -2,8 +2,8 @@
 
 import csv
 import logging
-import os
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
 import cv2
@@ -49,10 +49,10 @@ class SegmentationStatsFrame(ttk.Frame):
 
     def load_stats(self) -> None:
         """Load statistics from CSV file."""
-        csv_path = os.path.join(self.output_dir_var.get(), "results.csv")
-        if not os.path.exists(csv_path):
+        csv_path = Path(self.output_dir_var.get()) / "results.csv"
+        if not csv_path.exists():
             return
-        with open(csv_path) as f:
+        with csv_path.open("r", newline="") as f:
             reader = csv.DictReader(f)
             self.rows = list(reader)
             self.class_options = [col for col in reader.fieldnames if col != "Image"]
@@ -78,7 +78,7 @@ class SegmentationStatsFrame(ttk.Frame):
             props.append(prop)
             img_name = row["Image"]
             # If it's not an absolute path, take it from the output folder
-            img_path = os.path.join(output_dir, img_name) if not os.path.isabs(img_name) else img_name
+            img_path = Path(output_dir) / img_name if not Path(img_name).is_absolute() else Path(img_name)
             image_paths.append(img_path)
         # Remove old plot
         if self.stats_canvas:
@@ -146,8 +146,8 @@ class SegmentationStatsFrame(ttk.Frame):
                     output_orig_img = output_img.copy()
 
                     # Find and load the corresponding input image
-                    output_basename = os.path.basename(output_img_path)
-                    output_name, _ = os.path.splitext(output_basename)
+                    output_basename = output_img_path.name
+                    output_name, _ = output_img_path.stem, output_img_path.suffix
 
                     # Get the input directory
                     input_dir = ""
@@ -165,15 +165,15 @@ class SegmentationStatsFrame(ttk.Frame):
 
                         # Try all possible color spaces
                         for cs in color_spaces:
-                            possible_path = os.path.join(input_dir, f"{output_name}_{cs}.jpg")
-                            if os.path.exists(possible_path):
+                            possible_path = Path(input_dir) / f"{output_name}_{cs}.jpg"
+                            if possible_path.exists():
                                 input_img_path = possible_path
                                 break
 
                         # If no variant is found, try without color space
                         if not input_img_path:
-                            fallback_path = os.path.join(input_dir, f"{output_name}.jpg")
-                            if os.path.exists(fallback_path):
+                            fallback_path = Path(input_dir) / f"{output_name}.jpg"
+                            if fallback_path.exists():
                                 input_img_path = fallback_path
 
                     # Calculate the dimensions of the popup window
@@ -230,12 +230,10 @@ class SegmentationStatsFrame(ttk.Frame):
                     # Try to display the input image
                     try:
                         # Determine the color space from the filename
-                        input_filename = os.path.basename(input_img_path)
-                        input_name, _ = os.path.splitext(input_filename)
+                        input_name, _ = input_img_path.stem, input_img_path.suffix
 
                         # Read the image with OpenCV
-                        cv_img = cv2.imread(input_img_path)
-
+                        cv_img = cv2.imread(str(input_img_path))
                         # Convert the image according to the color space identified in the filename
                         if "_RGB" in input_name.upper():
                             # Already in RGB, just invert BGR to RGB

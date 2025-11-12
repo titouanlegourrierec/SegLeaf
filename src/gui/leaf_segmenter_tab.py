@@ -1,11 +1,11 @@
 """Tab for image segmentation functionality."""
 
 import logging
-import os
 import threading
 import time
 import tkinter as tk
 import typing
+from pathlib import Path
 from tkinter import filedialog, ttk
 
 from src import config
@@ -144,16 +144,19 @@ class LeafSegmenterTab(ttk.Frame):
                 output_dir = self.output_dir.get()
 
                 # Check if directories exist and have proper permissions
-                if not os.path.exists(input_dir):
+                # if not os.path.exists(input_dir):
+                if not Path(input_dir).exists():
                     self._show_status(f"Error: Input directory '{input_dir}' does not exist.")
                     return
 
                 # Ensure output directory exists or can be created
-                os.makedirs(output_dir, exist_ok=True)
+                Path(output_dir).mkdir(parents=True, exist_ok=True)
 
                 # Check input files
                 input_images = [
-                    f for f in os.listdir(input_dir) if f.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
+                    f
+                    for f in Path(input_dir).iterdir()
+                    if f.is_file() and f.name.lower().endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff"))
                 ]
                 total_images = len(input_images)
 
@@ -163,7 +166,7 @@ class LeafSegmenterTab(ttk.Frame):
 
                 # Check model file
                 model_path = self.model_path.get()
-                if model_path and not os.path.exists(model_path):
+                if model_path and not Path(model_path).exists():
                     self._show_status(f"Error: Model file '{model_path}' does not exist.")
                     return
 
@@ -260,7 +263,7 @@ class LeafSegmenterTab(ttk.Frame):
 
         """
         # Ensure the directory exists
-        os.makedirs(output_dir, exist_ok=True)
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         last_count = 0
         start_time = time.time()
@@ -271,8 +274,8 @@ class LeafSegmenterTab(ttk.Frame):
                 try:
                     output_files = [
                         f
-                        for f in os.listdir(output_dir)
-                        if (f.lower().endswith((".png", ".tif", ".tiff")) and not f.endswith(".csv"))
+                        for f in Path(output_dir).iterdir()
+                        if (f.name.lower().endswith((".png", ".tif", ".tiff")) and not f.name.endswith(".csv"))
                     ]
                     processed_count = len(output_files)
                 except Exception as e:

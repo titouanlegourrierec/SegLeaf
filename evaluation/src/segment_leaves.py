@@ -2,8 +2,8 @@
 
 import argparse
 import logging
-import os
 import sys
+from pathlib import Path
 
 
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 # Add the parent directory to sys.path to allow importing the src module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 try:
     from src.image_processing.leaf_segmenter import segment_leaves
@@ -77,13 +77,13 @@ def main() -> None:
         ("model_path", args.model_path),
         ("input_path", args.input_path),
     ]:
-        if not os.path.exists(path_value):
+        if not Path(path_value).exists():
             msg = f"Error: The specified {path_name} does not exist: {path_value}"
             logger.error(msg)
             sys.exit(1)
 
     # Create output directory if it doesn't exist
-    os.makedirs(args.output_path, exist_ok=True)
+    Path(args.output_path).mkdir(parents=True, exist_ok=True)
 
     # Check if model file has the right extension
     if not args.model_path.lower().endswith(".ilp"):
@@ -109,7 +109,7 @@ def main() -> None:
         msg = (
             f"Segmentation completed successfully. Results saved to {args.output_path}\n"
             "A CSV report with pixel class statistics has been generated at"
-            f"{os.path.join(args.output_path, 'results.csv')}"
+            f"{Path(args.output_path) / 'results.csv'}"
         )
         logger.info(msg)
     except Exception as e:

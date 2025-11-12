@@ -1,7 +1,7 @@
 """Utilities for working with the color map."""
 
 import json
-import os
+from pathlib import Path
 
 import numpy as np
 
@@ -14,9 +14,9 @@ def get_color_map() -> dict[str, int]:
         dict: A dictionary mapping class names to pixel values.
 
     """
-    color_map_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "color_map.json")
+    color_map_path = Path(__file__).parent.parent / "color_map.json"
     try:
-        with open(color_map_path) as f:
+        with color_map_path.open() as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         # Return default color map if file doesn't exist or is invalid
@@ -31,8 +31,8 @@ def save_color_map(color_map: dict[str, int]) -> None:
         color_map (dict): A dictionary mapping class names to pixel values.
 
     """
-    color_map_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "color_map.json")
-    with open(color_map_path, "w") as f:
+    color_map_path = Path(__file__).parent.parent / "color_map.json"
+    with color_map_path.open("w") as f:
         json.dump(color_map, f, indent=4)
 
 

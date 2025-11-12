@@ -2,8 +2,8 @@
 
 import argparse
 import logging
-import os
 import sys
+from pathlib import Path
 
 from .image_processing.batch_processor import split_leaves
 from .image_processing.leaf_segmenter import segment_leaves
@@ -25,16 +25,16 @@ def validate_path(path: str, *, should_exist: bool = True) -> str:
         str: The validated path
 
     """
-    if should_exist and not os.path.exists(path):
+    if should_exist and not Path(path).exists():
         msg = f"Path does not exist: {path}"
         raise argparse.ArgumentTypeError(msg)
 
     if not should_exist:
         # Check if parent directory exists for output paths
-        parent_dir = os.path.dirname(path)
-        if parent_dir and not os.path.exists(parent_dir):
+        parent_dir = Path(path).parent
+        if parent_dir and not parent_dir.exists():
             try:
-                os.makedirs(parent_dir, exist_ok=True)
+                parent_dir.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 msg = f"Cannot create directory: {parent_dir}. Error: {e}"
                 raise argparse.ArgumentTypeError(msg) from None

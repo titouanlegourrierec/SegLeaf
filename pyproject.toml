@@ -37,7 +37,6 @@ ignore = [
     "COM812",   # Checks for the absence of trailing commas. (conflict with the formatter)
     "D203",     # Checks for docstrings on class definitions that are not preceded by a blank line. (conflict with D211)
     "D212",     # Checks for docstring summary lines that are not positioned on the first physical line of the docstring. (conflict with D213)
-    "PTH"
 ]
 
 [tool.ruff.lint.isort]

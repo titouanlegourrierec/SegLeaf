@@ -2,8 +2,8 @@
 
 import csv
 import json
-import os
 import tempfile
+from pathlib import Path
 
 import numpy as np
 from EasIlastik.run_ilastik import run_ilastik
@@ -76,18 +76,19 @@ class LeafSegmenter:
         # Ensure output_path ends with a slash
         if not output_path.endswith("/"):
             output_path += "/"
-        self.input_path = input_path
-        self.output_path = output_path
+        self.input_path = Path(input_path)
+        self.output_path = Path(output_path)
 
         # Temporarily move CSV files out of the input directory
         temp_dir = tempfile.mkdtemp()
         csv_files = []
 
-        for fname in os.listdir(input_path):
-            if fname.lower().endswith(".csv"):
-                src = os.path.join(input_path, fname)
-                dst = os.path.join(temp_dir, fname)
-                os.rename(src, dst)
+        # for fname in os.listdir(input_path):
+        for fname in input_path.iterdir():
+            if fname.name.lower().endswith(".csv"):
+                src = input_path / fname
+                dst = Path(temp_dir) / fname.name
+                src.rename(dst)
                 csv_files.append((src, dst))
 
         try:
@@ -99,18 +100,18 @@ class LeafSegmenter:
             )
 
             # Rename files to remove '_Simple_Segmentation' from filenames
-            for fname in os.listdir(output_path):
-                if "_Simple_Segmentation" in fname:
-                    new_name = fname.replace("_Simple_Segmentation", "")
-                    src = os.path.join(output_path, fname)
-                    dst = os.path.join(output_path, new_name)
-                    if not os.path.exists(dst):
-                        os.rename(src, dst)
+            for fname in output_path.iterdir():
+                if "_Simple_Segmentation" in fname.name:
+                    new_name = fname.name.replace("_Simple_Segmentation", "")
+                    src = fname
+                    dst = output_path / new_name
+                    if not dst.exists():
+                        src.rename(dst)
         finally:
             # Move CSV files back to input directory
             for src, dst in csv_files:
-                if os.path.exists(dst):
-                    os.rename(dst, src)
+                if dst.exists():
+                    dst.rename(src)
 
     def make_bilan(self) -> None:
         """
@@ -127,7 +128,7 @@ class LeafSegmenter:
             msg = "output_path must be set to count pixels per class."
             raise ValueError(msg)
         segmented_dir = self.output_path
-        image_files = [f for f in os.listdir(segmented_dir) if f.lower().endswith((".png", ".tif", ".tiff"))]
+        image_files = [f.name for f in segmented_dir.iterdir() if f.name.lower().endswith((".png", ".tif", ".tiff"))]
         image_files.sort()
 
         # Collect all unique classes present in all images
@@ -135,7 +136,7 @@ class LeafSegmenter:
         image_class_areas = {}
         mm2_per_pixel = (25.4 / config.DPI) ** 2
         for img_file in image_files:
-            img_path = os.path.join(segmented_dir, img_file)
+            img_path = segmented_dir / img_file
             img = Image.open(img_path)
             arr = np.array(img)
             unique, counts = np.unique(arr, return_counts=True)
@@ -147,8 +148,8 @@ class LeafSegmenter:
         all_classes_sorted: list[int] = sorted(all_classes)
 
         # Read color_map.json to get class names
-        color_map_path = os.path.join(os.path.dirname(__file__), "../color_map.json")
-        with open(color_map_path) as f:
+        color_map_path = Path(__file__).parent.parent / "color_map.json"
+        with color_map_path.open() as f:
             color_map = json.load(f)
         # Invert the mapping to get {value: name}
         value_to_name = {v: k for k, v in color_map.items()}
@@ -160,8 +161,8 @@ class LeafSegmenter:
             header_classes.append(name)
 
         # Write the CSV file (surface in mm²)
-        csv_path = os.path.join(segmented_dir, "results.csv")
-        with open(csv_path, "w", newline="") as csvfile:
+        csv_path = Path(segmented_dir) / "results.csv"
+        with csv_path.open("w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             header = ["Image", *header_classes]
             writer.writerow(header)
