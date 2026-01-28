@@ -18,9 +18,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.4.0",
-    "ruff>=0.14.4",
-    "ty>=0.0.1a25",
+    "prek>=0.3.0",
+    "ruff>=0.14.14",
+    "ty>=0.0.14",
 ]
 
 [tool.ruff]
@@ -30,8 +30,8 @@ line-length = 119
 [tool.ruff.lint]
 pylint.max-branches = 20
 pylint.max-statements = 130
-mccabe.max-complexity = 24
 pylint.max-args = 10
+mccabe.max-complexity = 24
 select = ["ALL"]
 ignore = [
     "COM812",   # Checks for the absence of trailing commas. (conflict with the formatter)

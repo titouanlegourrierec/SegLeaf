@@ -11,7 +11,7 @@ format:
 quality: lint format
 
 precommit:
-	pre-commit run --all-files
+	prek run --all-files
 
 clean:
 	rm -rf __pycache__
