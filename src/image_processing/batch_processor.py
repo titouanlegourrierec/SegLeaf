@@ -3,6 +3,7 @@
 import csv
 import logging
 from pathlib import Path
+from collections.abc import Callable
 
 from PIL import Image
 from rich.console import Console
@@ -70,7 +71,11 @@ class BatchImageProcessor:
         image_extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.gif"]
         return [img_path for ext in image_extensions for img_path in self.input_dir.glob(ext) if img_path.is_file()]
 
-    def process_images(self, progress_callback: callable | None = None, console: Console | None = None) -> None:
+    def process_images(
+        self,
+        progress_callback: Callable[[int, int], None] | None = None,
+        console: Console | None = None,
+    ) -> None:
         """
         Process all images in the input directory.
 

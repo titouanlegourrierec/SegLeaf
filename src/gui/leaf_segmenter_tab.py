@@ -177,11 +177,14 @@ class LeafSegmenterTab(ttk.Frame):
                     self._show_status(f"Error loading model: {e}")
                     return
 
-                # Start progress monitoring thread
+                # Start progress monitoring thread:
+                # we treat the CSV generation as an extra step so that the
+                # progress bar reaches 100% only after the report is written.
+                total_steps = total_images + 1
                 stop_monitoring = threading.Event()
                 monitor_thread = threading.Thread(
                     target=self._monitor_progress,
-                    args=(output_dir, total_images, stop_monitoring),
+                    args=(output_dir, total_images, total_steps, stop_monitoring),
                     daemon=True,
                 )
                 monitor_thread.start()
@@ -218,16 +221,20 @@ class LeafSegmenterTab(ttk.Frame):
                     seconds = int(total_elapsed_time)
                     time_format = f"Total time: {seconds}s"
 
-                # Update progress bar to 100%
+                # Update progress bar and label to reflect that both
+                # segmentation and CSV generation are finished.
                 self.after(0, lambda: self.progress.config(value=100))
                 self.after(
                     0,
                     lambda: self.progress_label.config(
-                        text=f"Images processed: {total_images}/{total_images} (100%)\n{time_format}"
+                        text=(
+                            f"Images processed: {total_images}/{total_images} (100%)\n"
+                            f"CSV report generated\n{time_format}"
+                        )
                     ),
                 )
 
-                self._show_status(f"Segmentation completed. {time_format}")
+                self._show_status(f"Segmentation and CSV generation completed. {time_format}")
                 # Update stats in main thread
                 self.after(0, self._update_stats)
             except (OSError, ValueError, RuntimeError) as e:
@@ -245,14 +252,21 @@ class LeafSegmenterTab(ttk.Frame):
         # Start processing in a separate thread
         threading.Thread(target=process, daemon=True).start()
 
-    def _on_output_dir_change(self) -> None:
+    def _on_output_dir_change(self, *args: typing.Any) -> None:  # noqa: ANN401, ARG002
+        """Callback triggered when the output directory StringVar changes."""
         self._update_stats()
 
     def _update_stats(self) -> None:
         if hasattr(self, "stats_frame") and hasattr(self.stats_frame, "update_stats"):
             self.stats_frame.update_stats()
 
-    def _monitor_progress(self, output_dir: str, total_images: int, stop_event: threading.Event) -> None:
+    def _monitor_progress(
+        self,
+        output_dir: str,
+        total_images: int,
+        total_steps: int,
+        stop_event: threading.Event,
+    ) -> None:
         """
         Monitor the output directory to track segmentation progress.
 
@@ -288,7 +302,7 @@ class LeafSegmenterTab(ttk.Frame):
                 if processed_count != last_count:
                     # Limit to total_images to prevent overflow
                     processed_count = min(processed_count, total_images)
-                    percentage = int((processed_count / total_images) * 100)
+                    percentage = int((processed_count / total_steps) * 100)
                     self.after(0, lambda p=percentage: self.progress.config(value=p))
 
                     # Calculate remaining time estimate if at least one image has been processed

@@ -73,9 +73,7 @@ class LeafSegmenter:
         if input_path is None or output_path is None:
             msg = "input_path and output_path must be specified."
             raise ValueError(msg)
-        # Ensure output_path ends with a slash
-        if not output_path.endswith("/"):
-            output_path += "/"
+        # Normalize paths as Path objects
         self.input_path = Path(input_path)
         self.output_path = Path(output_path)
 
@@ -83,10 +81,9 @@ class LeafSegmenter:
         temp_dir = tempfile.mkdtemp()
         csv_files = []
 
-        # for fname in os.listdir(input_path):
-        for fname in input_path.iterdir():
+        for fname in self.input_path.iterdir():
             if fname.name.lower().endswith(".csv"):
-                src = input_path / fname
+                src = self.input_path / fname.name
                 dst = Path(temp_dir) / fname.name
                 src.rename(dst)
                 csv_files.append((src, dst))
@@ -94,17 +91,17 @@ class LeafSegmenter:
         try:
             # Run Ilastik without CSV files
             run_ilastik(
-                input_path=input_path,
+                input_path=str(self.input_path),
                 model_path=self.model_path,
-                result_base_path=output_path,
+                result_base_path=str(self.output_path),
             )
 
             # Rename files to remove '_Simple_Segmentation' from filenames
-            for fname in output_path.iterdir():
+            for fname in self.output_path.iterdir():
                 if "_Simple_Segmentation" in fname.name:
                     new_name = fname.name.replace("_Simple_Segmentation", "")
                     src = fname
-                    dst = output_path / new_name
+                    dst = self.output_path / new_name
                     if not dst.exists():
                         src.rename(dst)
         finally:

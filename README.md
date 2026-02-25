@@ -39,10 +39,13 @@ This project is a Python tool designed to assist with the segmentation and split
 
 Before you begin, make sure you have the following:
 
-1. **Ilastik Software**  
+1. **Python 3.12 (recommended)**  
+  The project is developed and tested with Python 3.12 on Windows, macOS, and Linux. Other Python 3.x versions (>= 3.10) may work but are not officially supported or regularly tested.
+
+2. **Ilastik Software**  
   Download and install Ilastik for your operating system from the [official website](https://www.ilastik.org/download). Ilastik is required to train or use segmentation models with this tool.
 
-2. **Trained Model (.ilp)**  
+3. **Trained Model (.ilp)**  
   - You can download a pre-trained model from this [Google Drive folder](https://drive.google.com/drive/folders/1onnnMpm90fbD1AaYEKAe_gVkTO8Fz5mB?usp=sharing). Four models are available, each corresponding to a different color space. For most cases, it is recommended to use the **LAB.ilp** model for optimal performance.
   - **Or train your own model:** If you want a model tailored to your dataset, follow our step-by-step guide in the [Ilastik training documentation](docs/ilastik_training.md). This allows you to adapt the segmentation to your own images and classes.
 

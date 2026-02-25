@@ -42,24 +42,34 @@ class SegmentationStatsFrame(ttk.Frame):
 
     def _setup_widgets(self) -> None:
         """Set up the widgets in the statistics frame."""
-        # Dropdown for class selection
+        # Dropdown for class selection (created here, packed only when data is available)
         self.dropdown = ttk.Combobox(self, textvariable=self.class_var, state="readonly")
-        self.dropdown.pack(pady=5)
         self.dropdown.bind("<<ComboboxSelected>>", lambda _: self.plot_stats())
 
     def load_stats(self) -> None:
         """Load statistics from CSV file."""
         csv_path = Path(self.output_dir_var.get()) / "results.csv"
         if not csv_path.exists():
+            # Hide dropdown if there's no stats file yet
+            self.dropdown.pack_forget()
             return
         with csv_path.open("r", newline="") as f:
             reader = csv.DictReader(f)
             self.rows = list(reader)
             self.class_options = [col for col in reader.fieldnames if col != "Image"]
-        self.dropdown["values"] = self.class_options
-        if self.class_options:
+
+        # Update dropdown options based on available classes
+        if len(self.class_options) > 1:
+            self.dropdown["values"] = self.class_options
+            self.dropdown.pack(pady=5)
             self.class_var.set(self.class_options[0])
             self.plot_stats()
+        else:
+            # If zero or one class, hide the selector (no meaningful choice)
+            self.dropdown.pack_forget()
+            if self.class_options:
+                self.class_var.set(self.class_options[0])
+                self.plot_stats()
 
     def plot_stats(self) -> None:
         """Plot the statistics."""
